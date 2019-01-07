@@ -2,12 +2,11 @@
 import os
 import sys
 from setuptools import setup, find_packages
-from version import version
 rootdir = os.path.abspath(os.path.dirname(__file__))
 name = "solrpage"
 long_description = open(os.path.join(rootdir, 'README.md')).read().strip()
 VERSION = open(os.path.join(rootdir, 'VERSION')).read().strip()
-setup(name='python-' + name,
+setup(name='jay' + name,
       version=VERSION,
       description='solrpage',
       long_description=long_description,

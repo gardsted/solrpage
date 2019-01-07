@@ -4,4 +4,6 @@ docs/build
 *.p12
 *.cert
 *.secret
+*.pyc
+__pycache__
 
