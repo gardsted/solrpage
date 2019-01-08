@@ -88,7 +88,7 @@ class Page(Page):
             else:
                 items.append((new_key, v))
         retdict = dict(items)
-        if rectype and set(retdict) != set(cls.schema[rectype]):
+        if rectype and set(retdict) != set(cls.schemas[rectype]):
             cls.schema(rectype, retdict)
         return retdict
 
@@ -105,11 +105,11 @@ class Page(Page):
             return response
 
     async def savepageitem(self, session):
-        records = [self.__class__.flatten(self.pageitem, "text")]
+        records = [self.__class__.flatten(self.pageitem, rectype="text")]
         return await self.__class__.add(session, "text", records)
 
     async def savelinkitems(self, session):
-        records = [self.__class__.flatten(r, "link") for r in self.linkitems]
+        records = [self.__class__.flatten(r, rectype="link") for r in self.linkitems]
         return await self.__class__.add(session, "link", records)
 
     async def save(self, session):
