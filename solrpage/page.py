@@ -9,14 +9,14 @@ import collections
 
 class Page(Page):
     solrurl = "http://example.com"
-    schemas = {}
+    schemas = {"text":{},"link":{}}
 
     @classmethod
     def syncpost(self,*args, **kwargs):
         return requests.post(*args, **kwargs)
 
     @classmethod
-    def schema(cls, rectype, record):
+    def schematypes(cls, rectype, record):
         # post field types
         for fieldtype in [{
             "name": "hostnames",
@@ -53,8 +53,11 @@ class Page(Page):
                 cls.solrurl+"/solr/" + rectype + "/schema",
                 json={"add-field-type": fieldtype})
 
+    @classmethod
+    def schema(cls, rectype, record):
+        cls.schematypes(rectype, record)
         # post fields
-        s = cls.schemas[rectype] = {}
+        s = cls.schemas[rectype]
         for k,v in record.items():
             s[k] = field = { "name": k, "stored": True, "type": "text_general"}
             if k.startswith("weight."):
@@ -72,7 +75,7 @@ class Page(Page):
                 json={"add-field": field})
 
     @classmethod
-    def flatten(cls, d, parent_key='', sep='.'):
+    def flatten(cls, d, parent_key='', sep='.', rectype=""):
         items = []
         for k, v in d.items():
             new_key = parent_key + sep + k if parent_key else k
@@ -84,7 +87,10 @@ class Page(Page):
                 items.append((new_key, v.strftime("%Y-%m-%dT%H:%M:%Sz")))
             else:
                 items.append((new_key, v))
-        return dict(items)
+        retdict = dict(items)
+        if rectype and set(retdict) != set(cls.schema[rectype]):
+            cls.schema(rectype, retdict)
+        return retdict
 
     @classmethod
     async def add(cls, session, core, records):
@@ -99,15 +105,11 @@ class Page(Page):
             return response
 
     async def savepageitem(self, session):
-        records = [self.__class__.flatten(self.pageitem)]
-        if not 'text' in self.__class__.schemas and len(records):
-            self.__class__.schema("text", records[0])
+        records = [self.__class__.flatten(self.pageitem, "text")]
         return await self.__class__.add(session, "text", records)
 
     async def savelinkitems(self, session):
-        records = [self.__class__.flatten(r) for r in self.linkitems]
-        if not 'link' in self.__class__.schemas and len(records):
-            self.__class__.schema("link", records[0])
+        records = [self.__class__.flatten(r, "link") for r in self.linkitems]
         return await self.__class__.add(session, "link", records)
 
     async def save(self, session):
