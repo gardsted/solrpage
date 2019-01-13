@@ -6,8 +6,49 @@ import collections
 import json
 import asyncio
 
+saved_posted = [[{
+    'id': '43f3e1132ca600be134f52eff3d7865d53646d28',
+    'id.source': ['ff50c40c1ee184a2f5264d05618ae6c9ae813807'],
+    'id.source.date': '43f3e1132ca600be134f52eff3d7865d53646d28',
+    'source.fragment': '',
+    'source.netloc': 'ycombinator.com',
+    'source.params': '',
+    'source.path': '',
+    'source.query': '',
+    'source.scheme': 'http',
+    'text': ['Hello, Mulligan'],
+    'weight.source': 42,
+    'when.date': '2019-01-01T00:00:00z',
+    'when.retrieved': '2019-01-01T10:00:00z'
+}], [{
+    'id': '4c7a034e3d5a99eb549924687315c6f9b06deb16',
+    'id.source': ['ff50c40c1ee184a2f5264d05618ae6c9ae813807'],
+    'id.source.date': '43f3e1132ca600be134f52eff3d7865d53646d28',
+    'id.source.target.date': '4c7a034e3d5a99eb549924687315c6f9b06deb16',
+    'id.target': '47014b13456d9554edd0cf4567c07059ea1c7837',
+    'source.fragment': '',
+    'source.netloc': 'ycombinator.com',
+    'source.params': '',
+    'source.path': '',
+    'source.query': '',
+    'source.scheme': 'http',
+    'target.fragment': '',
+    'target.netloc': 'example.com',
+    'target.params': '',
+    'target.path': '',
+    'target.query': '',
+    'target.scheme': 'http',
+    'title': ['Mulligan'],
+    'weight.source': 42,
+    'weight.target': 42,
+    'when.date': '2019-01-01T00:00:00z',
+    'when.retrieved': '2019-01-01T10:00:00z'
+}]]
+
 class Page(Page):
     storage={}
+    schemas = {"text":{},"link":{}, "me":{}}
+
 
     @classmethod
     def get_fields_by_response(cls, response):
@@ -24,11 +65,15 @@ class Page(Page):
             }
 
     @classmethod
-    async def add(cls, session, core, records):
+    def add(cls, core, records):
         cls.storage.setdefault("records",[]).append(records)
 
     @classmethod
-    def syncpost(cls,*args, **kwargs):
+    async def async_add(cls, session, core, records):
+        cls.storage.setdefault("records",[]).append(records)
+
+    @classmethod
+    def post(cls,*args, **kwargs):
         cls.storage.setdefault("json",[]).append(kwargs.pop("json",{}))
 
 class YcomResponse:
@@ -93,49 +138,16 @@ class Tests(unittest.TestCase):
                          'type': 'pdates'}}
         ])
 
+    def testsaveasync(self):
+        p = Page.fromresponse(YcomResponse())
+        p.now = datetime.datetime(2019,1,1,10,0,0)
+        asyncio.new_event_loop().run_until_complete(p.async_save(None))
+        posted = Page.storage["records"]
+        self.assertEqual(saved_posted, posted)
+
     def testsave(self):
         p = Page.fromresponse(YcomResponse())
         p.now = datetime.datetime(2019,1,1,10,0,0)
-        asyncio.new_event_loop().run_until_complete(p.save(None))
+        p.save()
         posted = Page.storage["records"]
-        self.assertEqual([[{
-            'id': '43f3e1132ca600be134f52eff3d7865d53646d28',
-            'id.source': ['ff50c40c1ee184a2f5264d05618ae6c9ae813807'],
-            'id.source.date': '43f3e1132ca600be134f52eff3d7865d53646d28',
-            'source.fragment': '',
-            'source.netloc': 'ycombinator.com',
-            'source.params': '',
-            'source.path': '',
-            'source.query': '',
-            'source.scheme': 'http',
-            'structure': 'body tr a',
-            'text': ['Hello, Mulligan'],
-            'weight.source': 42,
-            'when.date': '2019-01-01T00:00:00z',
-            'when.retrieved': '2019-01-01T10:00:00z'
-        }], [{
-            'id': '4c7a034e3d5a99eb549924687315c6f9b06deb16',
-            'id.source': ['ff50c40c1ee184a2f5264d05618ae6c9ae813807'],
-            'id.source.date': '43f3e1132ca600be134f52eff3d7865d53646d28',
-            'id.source.target.date': '4c7a034e3d5a99eb549924687315c6f9b06deb16',
-            'id.target': '47014b13456d9554edd0cf4567c07059ea1c7837',
-            'source.fragment': '',
-            'source.netloc': 'ycombinator.com',
-            'source.params': '',
-            'source.path': '',
-            'source.query': '',
-            'source.scheme': 'http',
-            'target.fragment': '',
-            'target.netloc': 'example.com',
-            'target.params': '',
-            'target.path': '',
-            'target.query': '',
-            'target.scheme': 'http',
-            'author': [''],
-            'text': [''],
-            'title': ['Mulligan'],
-            'weight.source': 42,
-            'weight.target': 42,
-            'when.date': '2019-01-01T00:00:00z',
-            'when.retrieved': '2019-01-01T10:00:00z'
-        }]], posted)
+        self.assertEqual(saved_posted, posted)

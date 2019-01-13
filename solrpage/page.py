@@ -12,7 +12,8 @@ class Page(Page):
     schemas = {"text":{},"link":{}}
 
     @classmethod
-    def syncpost(self,*args, **kwargs):
+    def post(cls, *args, **kwargs):
+        # override when testing
         return requests.post(*args, **kwargs)
 
     @classmethod
@@ -49,7 +50,7 @@ class Page(Page):
                 }
             },
         }]:
-            res = cls.syncpost(
+            res = cls.post(
                 cls.solrurl+"/solr/" + rectype + "/schema",
                 json={"add-field-type": fieldtype})
 
@@ -70,7 +71,7 @@ class Page(Page):
                 field["type"] = "paths"
             elif k.endswith(".query"):
                 field["type"] = "querystring"
-            res = cls.syncpost(
+            res = cls.post(
                 cls.solrurl+"/solr/" + rectype + "/schema",
                 json={"add-field": field})
 
@@ -93,25 +94,45 @@ class Page(Page):
         return retdict
 
     @classmethod
-    async def add(cls, session, core, records):
+    def add(cls, core, records):
         payload = ",\n".join(['"add": { "doc": %s }' % json.dumps(r) for r in records])
         payload = "{\n%s\n}"% payload
-        # print(payload)
+        return cls.post(cls.solrurl + "/solr/"
+                             + core + "/update?commitWithin=10000",
+                             headers={"Content-Type": "application/json"},
+                             data=payload)
+
+    @classmethod
+    async def async_add(cls, session, core, records):
+        payload = ",\n".join(['"add": { "doc": %s }' % json.dumps(r) for r in records])
+        payload = "{\n%s\n}"% payload
         async with session.post(cls.solrurl + "/solr/"
                                + core + "/update?commitWithin=10000",
                                headers={"Content-Type": "application/json"},
                                data=payload) as response:
-            # print(response.text)
             return response
 
-    async def savepageitem(self, session):
+    def savepageitem(self):
         records = [self.__class__.flatten(self.pageitem, rectype="text")]
-        return await self.__class__.add(session, "text", records)
+        return self.__class__.add("text", records)
 
-    async def savelinkitems(self, session):
+    async def async_savepageitem(self, session):
+        records = [self.__class__.flatten(self.pageitem, rectype="text")]
+        return await self.__class__.async_add(session, "text", records)
+
+    def savelinkitems(self):
         records = [self.__class__.flatten(r, rectype="link") for r in self.linkitems]
-        return await self.__class__.add(session, "link", records)
+        return self.__class__.add("link", records)
 
-    async def save(self, session):
-        saved = await self.savepageitem(session)
-        saved = await self.savelinkitems(session)
+    async def async_savelinkitems(self, session):
+        records = [self.__class__.flatten(r, rectype="link") for r in self.linkitems]
+        return await self.__class__.async_add(session, "link", records)
+
+    def save(self):
+        self.savepageitem()
+        self.savelinkitems()
+
+    async def async_save(self, session):
+        saved = await self.async_savepageitem(session)
+        saved = await self.async_savelinkitems(session)
+
